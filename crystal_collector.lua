@@ -25,8 +25,8 @@ local Section = Tab:CreateSection("Crystal Collection")
 local collecting = false
 local rootPart = game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
 
--- Define the mine area remote event
-local RequestWorld = game:GetService("ReplicatedStorage").Network.RequestWorld:FireServer("Mine")
+-- Define the mine area remote event (store the RemoteEvent here)
+local RequestWorld = game:GetService("ReplicatedStorage").Network:FindFirstChild("RequestWorld")
 
 -- Function to collect crystals
 local function collectCrystal(crystal)
@@ -78,8 +78,12 @@ end
 
 -- Function to teleport to the mine area using the remote event
 local function teleportToMineArea()
-    print("Teleporting to Mine area...")
-    RequestWorld
+    if RequestWorld then
+        print("Teleporting to Mine area...")
+        RequestWorld:FireServer("Mine")  -- Fire the remote event to teleport to the Mine area
+    else
+        print("Error: RequestWorld remote event not found.")
+    end
 end
 
 setupCrystalMonitor() -- Set up monitoring for new crystals
