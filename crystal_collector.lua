@@ -5,7 +5,7 @@ local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Window = Rayfield:CreateWindow({
     Name = "Crystal Collector Hub",
     LoadingTitle = "Rayfield Interface Suite",
-    LoadingSubtitle = "Crystal Collector + Anti-AFK + Aura Auto-Open",
+    LoadingSubtitle = "Crystal Collector",
     Theme = "Default",
     ConfigurationSaving = {
         Enabled = true,
@@ -18,18 +18,17 @@ local Window = Rayfield:CreateWindow({
 -- Create a Tab
 local Tab = Window:CreateTab("Main", "rewind") -- Title and Icon
 
--- Create Sections
-local CollectorSection = Tab:CreateSection("Crystal Collection")
-local AntiAFKSection = Tab:CreateSection("Anti-AFK")
-local AuraSection = Tab:CreateSection("Aura Auto-Open")
+-- Create a Section
+local Section = Tab:CreateSection("Crystal Collection")
 
 -- State Variables
 local collecting = false
-local antiAFKEnabled = false
-local autoAuraEnabled = false
 local rootPart = game.Players.LocalPlayer.Character and game.Players.LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
 
--- Crystal Collector Functions
+-- Define the mine area remote event
+local RequestWorld = game:GetService("ReplicatedStorage").Network.RequestWorld
+
+-- Function to collect crystals
 local function collectCrystal(crystal)
     if rootPart and (crystal:IsA("BasePart") or crystal:IsA("MeshPart")) then
         print("Collecting Crystal:", crystal:GetFullName(), "Position:", crystal.Position)
@@ -37,67 +36,70 @@ local function collectCrystal(crystal)
     end
 end
 
+-- Get the Crystals folder dynamically
+local function getCrystalsFolder()
+    if game.Workspace:FindFirstChild("Other") then
+        local otherFolder = game.Workspace.Other
+        if otherFolder:FindFirstChild("Crystals") then
+            return otherFolder.Crystals
+        end
+    end
+    return nil  -- Return nil if no Crystals folder is found
+end
+
+-- Crystal collection loop
 local function startCollecting()
     while collecting do
-        -- Collect existing crystals
-        for _, obj in pairs(game.Workspace.Other.Crystals:GetDescendants()) do
-            collectCrystal(obj)
+        local crystalsFolder = getCrystalsFolder()  -- Get Crystals folder
+        if crystalsFolder then
+            -- Collect existing crystals
+            for _, obj in pairs(crystalsFolder:GetDescendants()) do
+                collectCrystal(obj)
+            end
         end
         wait(0.1) -- Small delay
     end
 end
 
+-- Monitor newly spawned crystals
 local function setupCrystalMonitor()
-    game.Workspace.Other.Crystals.DescendantAdded:Connect(function(newCrystal)
-        if collecting then
-            print("New Crystal Spawned:", newCrystal:GetFullName())
-            collectCrystal(newCrystal)
-        end
-    end)
+    local crystalsFolder = getCrystalsFolder()
+    if crystalsFolder then
+        crystalsFolder.DescendantAdded:Connect(function(newCrystal)
+            if collecting then
+                print("New Crystal Spawned:", newCrystal:GetFullName())
+                collectCrystal(newCrystal)
+            end
+        end)
+    else
+        print("Crystals folder not found in the current area.")
+    end
+end
+
+-- Function to teleport to the mine area using the remote event
+local function teleportToMineArea()
+    print("Teleporting to Mine area...")
+    RequestWorld:FireServer("Mine")  -- Fire the remote event to teleport to the Mine area
 end
 
 setupCrystalMonitor() -- Set up monitoring for new crystals
 
--- Anti-AFK Functionality
-local VirtualUser = game:GetService("VirtualUser")
-
-local function enableAntiAFK()
-    game.Players.LocalPlayer.Idled:Connect(function()
-        if antiAFKEnabled then
-            VirtualUser:CaptureController()
-            VirtualUser:ClickButton2(Vector2.new()) -- Simulate right-click to prevent being kicked
-            print("Anti-AFK: Simulated activity to prevent kick.")
-        end
-    end)
-end
-
--- Aura Auto-Open Functions
-local function openAura(button)
-    if rootPart and button:IsA("BasePart") then
-        print("Opening Aura Button:", button:GetFullName(), "Position:", button.Position)
-        rootPart.CFrame = button.CFrame -- Move the player to the button
-        wait(0.2) -- Allow time for the button to register the interaction
-    end
-end
-
-local function startAutoAura()
-    while autoAuraEnabled do
-        -- Find and step on aura buttons
-        for _, button in pairs(game.Workspace.Other.AuraButtons:GetChildren()) do
-            openAura(button)
-        end
-        wait(0.5) -- Adjust delay to match button respawn times
-    end
-end
-
--- Create Crystal Collector Toggle
-local CollectorToggle = Tab:CreateToggle({
+-- Add a Toggle to the GUI
+local Toggle = Tab:CreateToggle({
     Name = "Enable Crystal Collector",
     CurrentValue = false,
     Flag = "CrystalCollectorToggle", -- Unique identifier
     Callback = function(Value)
         collecting = Value
         if collecting then
+            -- Check if we're in the right area
+            local currentPosition = game.Players.LocalPlayer.Character.HumanoidRootPart.Position
+            -- You can replace the check below with a specific condition if needed
+            -- If the player isn't in the mine, teleport them
+            if not game.Workspace:FindFirstChild("Other") or not game.Workspace.Other:FindFirstChild("Crystals") then
+                teleportToMineArea()  -- Teleport to the mine area
+                wait(2)  -- Wait for teleportation to complete (adjust as necessary)
+            end
             print("Crystal collection started.")
             coroutine.wrap(startCollecting)() -- Start collecting in a coroutine
         else
@@ -106,42 +108,10 @@ local CollectorToggle = Tab:CreateToggle({
     end,
 })
 
--- Create Anti-AFK Toggle
-local AntiAFKToggle = Tab:CreateToggle({
-    Name = "Enable Anti-AFK",
-    CurrentValue = false,
-    Flag = "AntiAFKToggle", -- Unique identifier
-    Callback = function(Value)
-        antiAFKEnabled = Value
-        if antiAFKEnabled then
-            print("Anti-AFK enabled.")
-            enableAntiAFK() -- Start Anti-AFK
-        else
-            print("Anti-AFK disabled.")
-        end
-    end,
-})
-
--- Create Aura Auto-Open Toggle
-local AuraToggle = Tab:CreateToggle({
-    Name = "Enable Aura Auto-Open",
-    CurrentValue = false,
-    Flag = "AuraAutoOpenToggle", -- Unique identifier
-    Callback = function(Value)
-        autoAuraEnabled = Value
-        if autoAuraEnabled then
-            print("Aura auto-open started.")
-            coroutine.wrap(startAutoAura)() -- Start aura auto-open in a coroutine
-        else
-            print("Aura auto-open stopped.")
-        end
-    end,
-})
-
--- Notify the user about the features
+-- Notify user when the script loads
 Rayfield:Notify({
-    Title = "Crystal Collector Hub Loaded",
-    Content = "Use the toggles to enable/disable Crystal Collector, Anti-AFK, and Aura Auto-Open.",
+    Title = "Crystal Collector Loaded",
+    Content = "Use the toggle to enable/disable crystal collection.",
     Duration = 6.5,
     Image = "rewind", -- Icon for the notification
 })
