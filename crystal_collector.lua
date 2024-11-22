@@ -102,7 +102,13 @@ local Toggle = Tab:CreateToggle({
             -- If the player isn't in the mine, teleport them
             if not game.Workspace:FindFirstChild("Other") or not game.Workspace.Other:FindFirstChild("Crystals") then
                 teleportToMineArea()  -- Teleport to the mine area
-                wait(2)  -- Wait for teleportation to complete (adjust as necessary)
+                wait(5)  -- Wait for teleportation to complete (increased time)
+                -- Check if we are in the mine area after teleporting
+                if game.Workspace:FindFirstChild("Other") and game.Workspace.Other:FindFirstChild("Crystals") then
+                    print("Successfully teleported to the Mine!")
+                else
+                    print("Failed to teleport to the Mine.")
+                end
             end
             print("Crystal collection started.")
             coroutine.wrap(startCollecting)() -- Start collecting in a coroutine
